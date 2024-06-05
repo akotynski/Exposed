@@ -134,7 +134,7 @@ class ThreadLocalTransactionManager(
         private val loadDataSourceIsolationLevel: Boolean
     ) : TransactionInterface {
 
-        private val connectionLazy = lazy(LazyThreadSafetyMode.NONE) {
+        private val connectionLazy = lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
             outerTransaction?.connection ?: db.connector().apply {
                 setupTxConnection?.invoke(this, this@ThreadLocalTransaction) ?: run {
                     // The order of setters here is important.

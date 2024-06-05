@@ -284,6 +284,36 @@ class CoroutineTests : DatabaseTestsBase() {
 
     @Test
     @RepeatableTest(10)
+    fun parallelQueriesInTransactionTest() {
+        withTables(Testing) {
+            val db = this.db
+            var suspendedOk = true
+            val mainJob = GlobalScope.launch {
+                newSuspendedTransaction(Dispatchers.IO, db = db) {
+                    (1..10).map {
+                        async {
+                            try {
+                                withSuspendTransaction(Dispatchers.IO) {
+                                    Testing.insertAndGetId {}
+                                }
+                            } catch (e: Exception) {
+                                exposedLogger.error("error", e)
+                                suspendedOk = false
+                            }
+                        }
+                    }.awaitAll()
+                }
+            }
+
+            runBlocking {
+                mainJob.join()
+                kotlin.test.assertTrue(suspendedOk)
+            }
+        }
+    }
+
+    @Test
+    @RepeatableTest(10)
     fun suspendedAndNormalTransactions() {
         withTables(Testing) {
             val db = this.db
@@ -322,7 +352,8 @@ class CoroutineTests : DatabaseTestsBase() {
         companion object : IntEntityClass<TestingEntity>(Testing)
     }
 
-    @Test fun testCoroutinesWithExceptionWithin() {
+    @Test
+    fun testCoroutinesWithExceptionWithin() {
         withTables(Testing) {
             val id = Testing.insertAndGetId {}
             commit()
